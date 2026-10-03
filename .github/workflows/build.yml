@@ -1,0 +1,65 @@
+name: Build Windows VST3
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -S . -B build -A x64
+
+      - name: Build VST3
+        run: cmake --build build --config Release --target SISHHIN_HZ_MACHINE_VST3
+
+      - name: Find VST3
+        id: find
+        shell: powershell
+        run: |
+          $vst = Get-ChildItem -Path build -Filter "*.vst3" -Recurse -Directory |
+                 Where-Object { $_.Name -like "*SISHHIN*" } |
+                 Select-Object -First 1
+
+          if (-not $vst) {
+            Write-Host "Build directory:"
+            Get-ChildItem build -Recurse | Select-Object FullName
+            throw "SISHHIN HZ MACHINE VST3 was not found."
+          }
+
+          Write-Host "Found: $($vst.FullName)"
+          "VST3_PATH=$($vst.FullName)" >> $env:GITHUB_OUTPUT
+
+      - name: Package VST3
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          Compress-Archive `
+            -Path "${{ steps.find.outputs.VST3_PATH }}" `
+            -DestinationPath "release/SISHHIN_HZ_MACHINE_Windows_VST3.zip"
+
+      - name: Upload VST3 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SISHHIN-HZ-MACHINE-Windows-VST3
+          path: release/SISHHIN_HZ_MACHINE_Windows_VST3.zip
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: SISHHIN HZ MACHINE Build ${{ github.run_number }}
+          files: release/SISHHIN_HZ_MACHINE_Windows_VST3.zip
+          generate_release_notes: true
