@@ -41,7 +41,6 @@ target_compile_definitions(SISHHIN_HZ_MACHINE PRIVATE
 )
 
 target_link_libraries(SISHHIN_HZ_MACHINE PRIVATE
-    juce::juce_core
     juce::juce_audio_utils
     juce::juce_dsp
     juce::juce_gui_extra
